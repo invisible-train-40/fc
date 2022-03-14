@@ -33,13 +33,13 @@ namespace fc { namespace crypto { namespace gm {
            public_key(const public_key& k);
            ~public_key();
            bool verify( const fc::sha256& digest, const signature& sig );
-           public_key_data serialize()const;
+           public_key_data_type serialize()const;
            public_key_point_data serialize_ecc_point()const;
 
            operator public_key_data()const { return serialize(); }
 
 
-           public_key( const public_key_data& v );
+           public_key( const public_key_data_type& v );
            public_key( const public_key_point_data& v );
            public_key( const signature& c, const fc::sha256& digest, bool check_canonical = true );
 
@@ -75,7 +75,7 @@ class signature {
       signature serialize()const { return *this; }
 
       signature() {}
-      signature(const gm::public_key_data& s, const gm::sm2_signature_base& a) :
+      signature(const gm::public_key_data_type& s, const gm::sm2_signature_base& a) :
          pub_key(s), sm2_signature_asn1(a) {}
 
       size_t variable_size() const {
@@ -99,15 +99,15 @@ class signature {
       friend struct fc::reflector<signature>;
       friend class public_key;
    private:
-      gm::public_key_data pub_key;
+      gm::public_key_data_type pub_key;
       gm::sm2_signature_base sm2_signature_asn1;
 };
 
      /**
        * Shims
        */
-     struct public_key_shim : public crypto::shim<gm::public_key_data> {
-        using crypto::shim<gm::public_key_data>::shim;
+     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
+        using crypto::shim<gm::public_key_data_type>::shim;
 
         bool valid()const {
            return public_key(_data).valid();
@@ -149,7 +149,7 @@ struct less_comparator<gm::signature> {
       template<typename Stream>
       void unpack( Stream& s, fc::crypto::gm::public_key& pk)
       {
-          crypto::gm::public_key_data_type ser;
+          crypto::gm::public_key_data_type_type ser;
           fc::raw::unpack(s,ser);
           pk = fc::crypto::gm::public_key( ser );
       }
@@ -167,5 +167,5 @@ struct less_comparator<gm::signature> {
 
 FC_REFLECT(fc::crypto::gm::signature, (pub_key)(sm2_signature_asn1))
 FC_REFLECT_TYPENAME( fc::crypto::gm::public_key )
-FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type>), BOOST_PP_SEQ_NIL )
-FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::sig_type>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type_type>), BOOST_PP_SEQ_NIL )
+//FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::sig_type>), BOOST_PP_SEQ_NIL )
