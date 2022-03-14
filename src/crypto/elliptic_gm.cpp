@@ -190,7 +190,7 @@ namespace fc
       if( *front == 0 ){}
       else
       {
-         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(dat)  );
+         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(v._data)  );
          if( !my->_key )
          {
            FC_THROW_EXCEPTION( exception, "error decoding public key", ("s", ERR_error_string( ERR_get_error(), nullptr) ) );
