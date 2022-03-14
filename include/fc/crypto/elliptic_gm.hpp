@@ -11,6 +11,7 @@
 namespace fc { namespace crypto { namespace gm {
 
    class signature;
+   class public_key;
 
     namespace detail
     {
@@ -21,6 +22,13 @@ namespace fc { namespace crypto { namespace gm {
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>         sig_type;
 
+     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
+        using crypto::shim<gm::public_key_data_type>::shim;
+        
+        bool valid()const {
+           return public_key(_data).valid();
+        }
+     };
 
     /**
      *  @class public_key
@@ -117,13 +125,6 @@ class signature {
    
      
 
-     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
-        using crypto::shim<gm::public_key_data_type>::shim;
-        
-        bool valid()const {
-           return public_key(_data).valid();
-        }
-     };
 
      struct signature_shim : public crypto::shim<gm::sig_type> {
         using public_key_type = public_key_shim;
