@@ -6,6 +6,7 @@
 #include <fc/fwd_impl.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/log/logger.hpp>
+#define SIG_OFFSET_IN_GM_SIGNATURE 33
 
 namespace fc { namespace crypto { namespace r1 {
     namespace detail
@@ -502,7 +503,7 @@ namespace fc { namespace crypto { namespace r1 {
       }
     }
 
-      public_key::public_key(const gm::signature &c, const fc::sha256 &digest, bool)
+      public_key::public_key(const fc::crypto::gm::signature &c, const fc::sha256 &digest, bool)
       {
         uint8_t asn1_enc_length = ((uint8_t)(c.sm2_signature_asn1.data[1])) + 2;
         FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
@@ -525,7 +526,7 @@ namespace fc { namespace crypto { namespace r1 {
 
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
       }
-      public_key::public_key(const gm::sig_type &c, const fc::sha256 &digest, bool)
+      public_key::public_key(const fc::crypto::gm::sig_type &c, const fc::sha256 &digest, bool)
       {
         const unsigned char *dat = (unsigned char *)&c.data[0];
         uint8_t asn1_enc_length = ((uint8_t)(dat[SIG_OFFSET_IN_GM_SIGNATURE + 1])) + 2;
