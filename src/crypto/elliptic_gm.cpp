@@ -95,5 +95,5 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
   {
     crypto::gm::public_key_data dat;
     from_variant( var, dat );
-    vo = 
+    vo = crypto::gm::public_key(dat);
 }
