@@ -11,7 +11,7 @@
 namespace fc { namespace crypto { namespace gm {
 
    class signature;
-   class public_key;
+   
 
     namespace detail
     {
@@ -21,7 +21,9 @@ namespace fc { namespace crypto { namespace gm {
     typedef fc::array<char,33>          public_key_data_type;
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>         sig_type;
-
+   class public_key {
+      public_key( const public_key_data_type& v );
+   }
      struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
         using crypto::shim<gm::public_key_data_type>::shim;
         
@@ -52,7 +54,7 @@ namespace fc { namespace crypto { namespace gm {
            operator public_key_data_type()const { return serialize(); }
 
            public_key( const  fc::crypto::gm::public_key_shim& v);
-           public_key( const public_key_data_type& v );
+           
            public_key( const public_key_point_data& v );
            public_key( const signature& c, const fc::sha256& digest, bool check_canonical = true );
            public_key( const sig_type& c, const fc::sha256& digest, bool check_canonical = true );
