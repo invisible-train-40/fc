@@ -74,8 +74,8 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
     if(SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)c.sm2_signature_asn1.data, c.sm2_signature_asn1.size(), key)==1){
       const EC_POINT* point = EC_KEY_get0_public_key(key);
       const EC_GROUP* group = EC_KEY_get0_group(key);
-      size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, (uint8_t*)public.data, public_key_data.size(), NULL);
-      if(sz == public_key_data.size()){
+      size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, (uint8_t*)self.my->_key.data, self.my->_key.size(), NULL);
+      if(sz == self.my->_key.size()){
         self.my->_key = key;
         return;
       }
