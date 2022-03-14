@@ -185,6 +185,19 @@ namespace fc
          }
       }
     }
+    public_key::public_key ( const public_key_shim& v){
+      const char* front = &v._data.data[0];
+      if( *front == 0 ){}
+      else
+      {
+         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(dat)  );
+         if( !my->_key )
+         {
+           FC_THROW_EXCEPTION( exception, "error decoding public key", ("s", ERR_error_string( ERR_get_error(), nullptr) ) );
+         }
+      }
+      
+    }
     public_key::public_key( const public_key_data_type& dat )
     {
       const char* front = &dat.data[0];
