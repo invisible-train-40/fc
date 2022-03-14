@@ -12,7 +12,8 @@ namespace fc { namespace crypto {
       constexpr const char* signature_prefix[] = {
          "K1",
          "R1",
-         "WA"
+         "WA",
+         "GM"
       };
    };
 

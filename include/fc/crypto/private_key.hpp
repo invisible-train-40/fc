@@ -12,7 +12,8 @@ namespace fc { namespace crypto {
       constexpr const char* private_key_base_prefix = "PVT";
       constexpr const char* private_key_prefix[] = {
          "K1",
-         "R1"
+         "R1",
+         //"GM"
       };
    };
 
