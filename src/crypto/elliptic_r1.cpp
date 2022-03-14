@@ -502,6 +502,54 @@ namespace fc { namespace crypto { namespace r1 {
       }
     }
 
+      public_key::public_key(const gm::signature &c, const fc::sha256 &digest, bool)
+      {
+        uint8_t asn1_enc_length = ((uint8_t)(c.sm2_signature_asn1.data[1])) + 2;
+        FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
+        FC_ASSERT(asn1_enc_length == c.sm2_signature_asn1.size(), "bad match of signature size");
+        unsigned char *front = (uint8_t *)(c.pub_key.data);
+        EC_KEY *key = EC_KEY_new_by_curve_name(NID_sm2p256v1);
+        key = o2i_ECPublicKey(&key, (const unsigned char **)&front, c.pub_key.size());
+        FC_ASSERT(key, "invalid public key in sm2 signature");
+        if (SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)&c.sm2_signature_asn1.data[0], c.sm2_signature_asn1.size(), key) == 1)
+        {
+          const EC_POINT *point = EC_KEY_get0_public_key(key);
+          const EC_GROUP *group = EC_KEY_get0_group(key);
+          size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, front, 33, NULL);
+          if (sz == 33)
+          {
+            my->_key = key;
+            return;
+          }
+        }
+
+        FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
+      }
+      public_key::public_key(const gm::sig_type &c, const fc::sha256 &digest, bool)
+      {
+        const unsigned char *dat = (unsigned char *)&c.data[0];
+        uint8_t asn1_enc_length = ((uint8_t)(dat[SIG_OFFSET_IN_GM_SIGNATURE + 1])) + 2;
+        FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
+        FC_ASSERT(asn1_enc_length == (c.size() - 33), "bad match of signature size");
+        const unsigned char *front = (uint8_t *)(c.data);
+        EC_KEY *key = EC_KEY_new_by_curve_name(NID_sm2p256v1);
+        key = o2i_ECPublicKey(&key, (const unsigned char **)&front, 33);
+        FC_ASSERT(key, "invalid public key in sm2 signature");
+        if (SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)&c.data[SIG_OFFSET_IN_GM_SIGNATURE], (c.size() - 33), key) == 1)
+        {
+          const EC_POINT *point = EC_KEY_get0_public_key(key);
+          const EC_GROUP *group = EC_KEY_get0_group(key);
+          size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, (uint8_t *)&c.data[0], 33, NULL);
+          if (sz == 33)
+          {
+            my->_key = key;
+            return;
+          }
+        }
+
+        FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
+      }
+
     bool       private_key::verify( const fc::sha256& digest, const fc::crypto::r1::signature& sig )
     {
       return 1 == ECDSA_verify( 0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key );
