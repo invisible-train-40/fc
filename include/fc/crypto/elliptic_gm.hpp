@@ -121,8 +121,6 @@ struct less_comparator<gm::signature> {
 
 }
 
-  void to_variant( const crypto::gm::private_key& var,  variant& vo );
-  void from_variant( const variant& var,  crypto::gm::private_key& vo );
   void to_variant( const crypto::gm::public_key& var,  variant& vo );
   void from_variant( const variant& var,  crypto::gm::public_key& vo );
 
