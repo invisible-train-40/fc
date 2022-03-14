@@ -502,7 +502,7 @@ namespace fc { namespace crypto { namespace r1 {
          }
       }
     }
-
+/*
       public_key::public_key(const fc::crypto::gm::signature &c, const fc::sha256 &digest, bool)
       {
         uint8_t asn1_enc_length = ((uint8_t)(c.sm2_signature_asn1.data[1])) + 2;
@@ -549,7 +549,7 @@ namespace fc { namespace crypto { namespace r1 {
         }
 
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
-      }
+      }*/
 
     bool       private_key::verify( const fc::sha256& digest, const fc::crypto::r1::signature& sig )
     {
