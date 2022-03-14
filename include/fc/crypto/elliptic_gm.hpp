@@ -28,7 +28,12 @@ namespace fc { namespace crypto { namespace gm {
      */
     class public_key
     {
+       
         public:
+         using public_key_data_type = fc::array<char, 33>;
+
+         //Used for base58 de/serialization
+         using data_type = public_key;
            public_key();
            public_key(const public_key& k);
            ~public_key();
