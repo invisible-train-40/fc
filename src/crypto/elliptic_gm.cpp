@@ -67,6 +67,40 @@ namespace fc
         };
       }
 
+      public_key_data_type public_key::serialize() const
+      {
+        public_key_data_type dat;
+        if (!my->_key)
+          return dat;
+        EC_KEY_set_conv_form(my->_key, POINT_CONVERSION_COMPRESSED);
+        /*size_t nbytes = i2o_ECPublicKey( my->_key, nullptr ); */
+        /*FC_ASSERT( nbytes == 33 )*/
+        char *front = &dat.data[0];
+        i2o_ECPublicKey(my->_key, (unsigned char **)&front);
+        return dat;
+        /*
+         EC_POINT* pub   = EC_KEY_get0_public_key( my->_key );
+         EC_GROUP* group = EC_KEY_get0_group( my->_key );
+         EC_POINT_get_affine_coordinates_GFp( group, pub, self.my->_pub_x.get(), self.my->_pub_y.get(), nullptr );
+         */
+      }
+      public_key_point_data public_key::serialize_ecc_point() const
+      {
+        public_key_point_data dat;
+        if (!my->_key)
+          return dat;
+        EC_KEY_set_conv_form(my->_key, POINT_CONVERSION_UNCOMPRESSED);
+        char *front = &dat.data[0];
+        i2o_ECPublicKey(my->_key, (unsigned char **)&front);
+        return dat;
+      }
+
+      public_key::public_key()
+      {
+      }
+      public_key::~public_key()
+      {
+      }
       public_key::public_key(const gm::signature &c, const fc::sha256 &digest, bool)
       {
         uint8_t asn1_enc_length = ((uint8_t)(c.sm2_signature_asn1.data[1])) + 2;
@@ -91,30 +125,29 @@ namespace fc
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
       }
 
-
-    std::string public_key::to_base58() const
-    {
-      public_key_data_type key = serialize();
-      uint32_t check = (uint32_t)sha256::hash(key.data, sizeof(key))._hash[0];
-      static_assert(sizeof(key) + sizeof(check) == 37, ""); // hack around gcc bug: key.size() should be constexpr, but isn't
-      array<char, 37> data;
-      memcpy(data.data, key.begin(), key.size());
-      memcpy(data.begin() + key.size(), (const char*)&check, sizeof(check));
-      return fc::to_base58(data.begin(), data.size(), fc::yield_function_t());
-    }
-
-    public_key public_key::from_base58( const std::string& b58 )
-    {
+      std::string public_key::to_base58() const
+      {
+        public_key_data_type key = serialize();
+        uint32_t check = (uint32_t)sha256::hash(key.data, sizeof(key))._hash[0];
+        static_assert(sizeof(key) + sizeof(check) == 37, ""); // hack around gcc bug: key.size() should be constexpr, but isn't
         array<char, 37> data;
-        size_t s = fc::from_base58(b58, (char*)&data, sizeof(data) );
-        FC_ASSERT( s == sizeof(data) );
+        memcpy(data.data, key.begin(), key.size());
+        memcpy(data.begin() + key.size(), (const char *)&check, sizeof(check));
+        return fc::to_base58(data.begin(), data.size(), fc::yield_function_t());
+      }
+
+      public_key public_key::from_base58(const std::string &b58)
+      {
+        array<char, 37> data;
+        size_t s = fc::from_base58(b58, (char *)&data, sizeof(data));
+        FC_ASSERT(s == sizeof(data));
 
         public_key_data_type key;
         uint32_t check = (uint32_t)sha256::hash(data.data, sizeof(key))._hash[0];
-        FC_ASSERT( memcmp( (char*)&check, data.data + sizeof(key), sizeof(check) ) == 0 );
-        memcpy( (char*)key.data, data.data, sizeof(key) );
+        FC_ASSERT(memcmp((char *)&check, data.data + sizeof(key), sizeof(check)) == 0);
+        memcpy((char *)key.data, data.data, sizeof(key));
         return public_key(key);
-    }
+      }
       public_key::public_key(const gm::sig_type &c, const fc::sha256 &digest, bool)
       {
         const unsigned char *dat = (unsigned char *)&c.data[0];
@@ -139,6 +172,33 @@ namespace fc
 
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
       }
+    public_key::public_key( const public_key_point_data& dat )
+    {
+      const char* front = &dat.data[0];
+      if( *front == 0 ){}
+      else
+      {
+         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(dat)  );
+         if( !my->_key )
+         {
+           FC_THROW_EXCEPTION( exception, "error decoding public key", ("s", ERR_error_string( ERR_get_error(), nullptr) ) );
+         }
+      }
+    }
+    public_key::public_key( const public_key_data_type& dat )
+    {
+      const char* front = &dat.data[0];
+      if( *front == 0 ){}
+      else
+      {
+         my->_key = EC_KEY_new_by_curve_name( NID_sm2p256v1 );
+         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(public_key_data) );
+         if( !my->_key )
+         {
+           FC_THROW_EXCEPTION( exception, "error decoding public key", ("s", ERR_error_string( ERR_get_error(), nullptr) ) );
+         }
+      }
+    }
 
     }
   }
