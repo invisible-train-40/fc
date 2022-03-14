@@ -98,6 +98,7 @@ set( fc_sources
      src/crypto/elliptic_${ECC_IMPL}.cpp
      src/crypto/elliptic_r1.cpp
      src/crypto/elliptic_webauthn.cpp
+     src/crypto/elliptic_gm.cpp
      src/crypto/rand.cpp
      src/crypto/public_key.cpp
      src/crypto/private_key.cpp
