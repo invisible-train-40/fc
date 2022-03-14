@@ -185,7 +185,7 @@ namespace fc
          }
       }
     }
-    public_key::public_key ( const public_key_shim& v){
+    public_key::public_key ( const fc::crypto::gm::public_key_shim& v){
       const char* front = &v._data.data[0];
       if( *front == 0 ){}
       else

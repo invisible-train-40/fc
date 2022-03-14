@@ -21,6 +21,22 @@ namespace fc { namespace crypto { namespace gm {
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>         sig_type;
 
+     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
+        using crypto::shim<gm::public_key_data_type>::shim;
+        
+        bool valid()const {
+           return public_key(_data).valid();
+        }
+     };
+
+     struct signature_shim : public crypto::shim<gm::sig_type> {
+        using public_key_type = public_key_shim;
+        using crypto::shim<gm::sig_type>::shim;
+
+        public_key_type recover(const sha256& digest, bool check_canonical) const {
+           return public_key_type(public_key(_data, digest, check_canonical).serialize());
+        }
+     };
 
     /**
      *  @class public_key
@@ -43,7 +59,7 @@ namespace fc { namespace crypto { namespace gm {
 
            operator public_key_data_type()const { return serialize(); }
 
-           public_key( const public_key_shim& v);
+           public_key( const  fc::crypto::gm::public_key_shim& v);
            public_key( const public_key_data_type& v );
            public_key( const public_key_point_data& v );
            public_key( const signature& c, const fc::sha256& digest, bool check_canonical = true );
@@ -115,22 +131,6 @@ class signature {
        */
 
    
-     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
-        using crypto::shim<gm::public_key_data_type>::shim;
-        
-        bool valid()const {
-           return public_key(_data).valid();
-        }
-     };
-
-     struct signature_shim : public crypto::shim<gm::sig_type> {
-        using public_key_type = public_key_shim;
-        using crypto::shim<gm::sig_type>::shim;
-
-        public_key_type recover(const sha256& digest, bool check_canonical) const {
-           return public_key_type(public_key(_data, digest, check_canonical).serialize());
-        }
-     };
      
 
 }
