@@ -192,7 +192,7 @@ namespace fc
       else
       {
          my->_key = EC_KEY_new_by_curve_name( NID_sm2p256v1 );
-         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(public_key_data) );
+         my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(public_key_data_type) );
          if( !my->_key )
          {
            FC_THROW_EXCEPTION( exception, "error decoding public key", ("s", ERR_error_string( ERR_get_error(), nullptr) ) );
