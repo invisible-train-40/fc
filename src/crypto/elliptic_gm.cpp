@@ -84,7 +84,7 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
     EC_KEY * key = EC_KEY_new_by_curve_name( NID_sm2p256v1 );
     key = o2i_ECPublicKey( &key, (const unsigned char**)&front, c.pub_key.size() );
     FC_ASSERT(key, "invalid public key in sm2 signature");
-    if(SM2_verify(NID_undef, (uint8_t *)digest_32.data, 32, (uint8_t *)c.sm2_signature_asn1.data, c.sm2_signature_asn1.size(), key)==1){
+    if(SM2_verify(NID_undef, (uint8_t *)digest.data, 32, (uint8_t *)c.sm2_signature_asn1.data, c.sm2_signature_asn1.size(), key)==1){
       const EC_POINT* point = EC_KEY_get0_public_key(key);
       const EC_GROUP* group = EC_KEY_get0_group(key);
       size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, (uint8_t*)public_key_data.data, public_key_data.size(), NULL);
@@ -96,8 +96,6 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
    FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature" );
 }
 
-void public_key::post_init() {
-}
 
 }}
 

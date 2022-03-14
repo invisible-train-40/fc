@@ -17,7 +17,7 @@ namespace fc { namespace crypto { namespace gm {
       class public_key_impl;
     }
     typedef fc::array<char,72>          sm2_signature_base;
-    typedef fc::array<char,33>          public_key_data;
+    typedef fc::array<char,33>          public_key_data_type;
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>         sig_type;
 
@@ -103,6 +103,26 @@ class signature {
       gm::sm2_signature_base sm2_signature_asn1;
 };
 
+     /**
+       * Shims
+       */
+     struct public_key_shim : public crypto::shim<gm::public_key_data> {
+        using crypto::shim<gm::public_key_data>::shim;
+
+        bool valid()const {
+           return public_key(_data).valid();
+        }
+     };
+
+     struct signature_shim : public crypto::shim<gm::sig_type> {
+        using public_key_type = public_key_shim;
+        using crypto::shim<gm::sig_type>::shim;
+
+        public_key_type recover(const sha256& digest, bool check_canonical) const {
+           return public_key_type(public_key(_data, digest, check_canonical).serialize());
+        }
+     };
+
 }
 
 template<>
@@ -129,7 +149,7 @@ struct less_comparator<gm::signature> {
       template<typename Stream>
       void unpack( Stream& s, fc::crypto::gm::public_key& pk)
       {
-          crypto::gm::public_key_data ser;
+          crypto::gm::public_key_data_type ser;
           fc::raw::unpack(s,ser);
           pk = fc::crypto::gm::public_key( ser );
       }
@@ -146,3 +166,6 @@ struct less_comparator<gm::signature> {
 #include <fc/reflect/reflect.hpp>
 
 FC_REFLECT(fc::crypto::gm::signature, (pub_key)(sm2_signature_asn1))
+FC_REFLECT_TYPENAME( fc::crypto::gm::public_key )
+FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::sig_type>), BOOST_PP_SEQ_NIL )
