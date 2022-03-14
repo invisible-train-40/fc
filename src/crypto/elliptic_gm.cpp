@@ -92,7 +92,7 @@ namespace fc
       }
       public_key::public_key(const sig_type &c, const fc::sha256 &digest, bool)
       {
-        const unsigned char *dat = &c.data[0];
+        const unsigned char *dat = (unsigned char *)&c.data[0];
         uint8_t asn1_enc_length = ((uint8_t)(dat[SIG_OFFSET_IN_GM_SIGNATURE + 1])) + 2;
         FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
         FC_ASSERT(asn1_enc_length == (c.size() - 33), "bad match of signature size");
