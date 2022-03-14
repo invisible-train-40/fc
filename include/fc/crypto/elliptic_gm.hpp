@@ -84,6 +84,9 @@ class signature {
       signature(const gm::public_key_data_type& s, const gm::sm2_signature_base& a) :
          pub_key(s), sm2_signature_asn1(a) {}
 
+      public_key recover(const sha256& digest, bool check_canonical) const {
+         return public_key(*this, digest, check_canonical);
+      }
       size_t variable_size() const {
          return 105;
       }

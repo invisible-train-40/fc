@@ -14,6 +14,9 @@ namespace fc { namespace crypto {
       size_t operator()(const webauthn::signature& sig) const {
          return sig.get_hash();
       }
+      size_t operator()(const gm::signature& sig) const {
+         return sig.get_hash();
+      }
    };
 
    static signature::storage_type sig_parse_base58(const std::string& base58str)
