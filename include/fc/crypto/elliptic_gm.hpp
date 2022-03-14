@@ -153,7 +153,7 @@ struct less_comparator<gm::signature> {
       template<typename Stream>
       void unpack( Stream& s, fc::crypto::gm::public_key& pk)
       {
-          crypto::gm::public_key_data_type_type ser;
+          crypto::gm::public_key_data_type ser;
           fc::raw::unpack(s,ser);
           pk = fc::crypto::gm::public_key( ser );
       }
@@ -171,5 +171,5 @@ struct less_comparator<gm::signature> {
 
 FC_REFLECT(fc::crypto::gm::signature, (pub_key)(sm2_signature_asn1))
 FC_REFLECT_TYPENAME( fc::crypto::gm::public_key )
-FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type_type>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type>), BOOST_PP_SEQ_NIL )
 FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::sig_type>), BOOST_PP_SEQ_NIL )
