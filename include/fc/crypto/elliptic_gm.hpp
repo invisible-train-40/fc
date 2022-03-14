@@ -36,7 +36,7 @@ namespace fc { namespace crypto { namespace gm {
            public_key_data_type serialize()const;
            public_key_point_data serialize_ecc_point()const;
 
-           operator public_key_data()const { return serialize(); }
+           operator public_key_data_type()const { return serialize(); }
 
 
            public_key( const public_key_data_type& v );
