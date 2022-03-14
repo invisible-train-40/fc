@@ -42,6 +42,7 @@ namespace fc { namespace crypto { namespace gm {
            public_key( const public_key_data_type& v );
            public_key( const public_key_point_data& v );
            public_key( const signature& c, const fc::sha256& digest, bool check_canonical = true );
+           public_key( const sig_type& c, const fc::sha256& digest, bool check_canonical = true );
 
            bool valid()const;
            public_key mult( const fc::sha256& offset );
