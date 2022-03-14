@@ -75,7 +75,7 @@ class signature {
       signature serialize()const { return *this; }
 
       signature() {}
-      signature(const gm::public_key_data& s, const gm::sm2_signature_asn1& a) :
+      signature(const gm::public_key_data& s, const gm::sm2_signature_base& a) :
          pub_key(s), sm2_signature_asn1(a) {}
 
       size_t variable_size() const {
@@ -119,21 +119,32 @@ struct less_comparator<gm::signature> {
    }
 };
 
-template<>
-struct eq_comparator<gm::public_key> {
-   static bool apply(const gm::public_key& a, const gm::public_key& b) {
-      return a == b;
-   }
-};
+}
 
-template<>
-struct less_comparator<gm::public_key> {
-   static bool apply(const gm::public_key& a, const gm::public_key& b) {
-      return a < b;
-   }
-};
+  void to_variant( const crypto::gm::private_key& var,  variant& vo );
+  void from_variant( const variant& var,  crypto::gm::private_key& vo );
+  void to_variant( const crypto::gm::public_key& var,  variant& vo );
+  void from_variant( const variant& var,  crypto::gm::public_key& vo );
 
-}}
+  namespace raw
+  {
+      template<typename Stream>
+      void unpack( Stream& s, fc::crypto::gm::public_key& pk)
+      {
+          crypto::gm::public_key_data ser;
+          fc::raw::unpack(s,ser);
+          pk = fc::crypto::gm::public_key( ser );
+      }
+
+      template<typename Stream>
+      void pack( Stream& s, const fc::crypto::gm::public_key& pk)
+      {
+          fc::raw::pack( s, pk.serialize() );
+      }
+
+
+  } // namespace raw
+}
 #include <fc/reflect/reflect.hpp>
 
-FC_REFLECT(fc::crypto::gm::signature, (compact_signature)(auth_data)(client_json))
+FC_REFLECT(fc::crypto::gm::signature, (pub_key)(sm2_signature_asn1))

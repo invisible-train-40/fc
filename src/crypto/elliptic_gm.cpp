@@ -99,4 +99,15 @@ public_key::public_key(const signature& c, const fc::sha256& digest, bool) {
 void public_key::post_init() {
 }
 
-}}}
+}}
+
+  void to_variant( const crypto::gm::public_key& var,  variant& vo )
+  {
+    vo = var.serialize();
+  }
+  void from_variant( const variant& var,  crypto::gm::public_key& vo )
+  {
+    crypto::gm::public_key_data dat;
+    from_variant( var, dat );
+    vo = 
+}
