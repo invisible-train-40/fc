@@ -23,7 +23,7 @@ namespace fc { namespace crypto {
    class public_key
    {
       public:
-         using storage_type = std::variant<ecc::public_key_shim, r1::public_key_shim, webauthn::public_key, gm::public_key>;
+         using storage_type = std::variant<ecc::public_key_shim, r1::public_key_shim, webauthn::public_key, gm::public_key_shim>;
 
          public_key() = default;
          public_key( public_key&& ) = default;
