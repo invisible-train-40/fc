@@ -7,6 +7,7 @@
 #include <openssl/ecdsa.h>
 #include <openssl/ecdh.h>
 #include <openssl/sha.h>
+#include <openssl/sm2.h>
 #include <openssl/obj_mac.h>
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L

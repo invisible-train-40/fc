@@ -79,9 +79,9 @@ namespace fc { namespace crypto { namespace gm {
         return public_key(key);
     }
 
-    bool       public_key::verify( const fc::sha256& digest, const fc::crypto::gm::signature& sig )
+    bool public_key::verify( const fc::sha256& digest, const fc::crypto::gm::signature& sig )
     {
-      return 1 == ECDSA_verify( 0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key );
+      return 1 == SM2_verify( NID_undef, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig.data[33], sizeof(sig)-33, my->_key );
     }
 
     public_key_data public_key::serialize()const
@@ -135,7 +135,7 @@ namespace fc { namespace crypto { namespace gm {
       if( *front == 0 ){}
       else
       {
-         my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
+         my->_key = EC_KEY_new_by_curve_name( NID_sm2p256v1 );
          my->_key = o2i_ECPublicKey( &my->_key, (const unsigned char**)&front, sizeof(public_key_data) );
          if( !my->_key )
          {
@@ -147,34 +147,26 @@ namespace fc { namespace crypto { namespace gm {
 
     public_key::public_key( const compact_signature& c, const fc::sha256& digest, bool check_canonical )
     {
-        int nV = c.data[0];
-        if (nV<27 || nV>=35)
-            FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature" );
 
-        ecdsa_sig sig = ECDSA_SIG_new();
-        BIGNUM *r = BN_new(), *s = BN_new();
-        BN_bin2bn(&c.data[1],32,r);
-        BN_bin2bn(&c.data[33],32,s);
-        ECDSA_SIG_set0(sig, r, s);
-
-        my->_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-
-        const EC_GROUP* group = EC_KEY_get0_group(my->_key);
-        ssl_bignum order, halforder;
-        EC_GROUP_get_order(group, order, nullptr);
-        BN_rshift1(halforder, order);
-        if(BN_cmp(s, halforder) > 0)
-           FC_THROW_EXCEPTION( exception, "invalid high s-value encountered in r1 signature" );
-
-        if (nV >= 31)
+        const unsigned char *dat = (unsigned char *)&c.data[0];
+        uint8_t asn1_enc_length = ((uint8_t)(dat[33 + 1])) + 2;
+        FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
+        FC_ASSERT(asn1_enc_length == (c.size() - 33), "bad match of signature size");
+        const unsigned char *front = (uint8_t *)(c.data);
+        EC_KEY *key = EC_KEY_new_by_curve_name(NID_sm2p256v1);
+        key = o2i_ECPublicKey(&key, (const unsigned char **)&front, 33);
+        FC_ASSERT(key, "invalid public key in sm2 signature");
+        if (SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)&c.data[33], (c.size() - 33), key) == 1)
         {
-            EC_KEY_set_conv_form( my->_key, POINT_CONVERSION_COMPRESSED );
-            nV -= 4;
-//            fprintf( stderr, "compressed\n" );
+          const EC_POINT *point = EC_KEY_get0_public_key(key);
+          const EC_GROUP *group = EC_KEY_get0_group(key);
+          size_t sz = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, (uint8_t *)&c.data[0], 33, NULL);
+          if (sz == 33)
+          {
+            my->_key = key;
+            return;
+          }
         }
-
-        //if (ECDSA_SIG_recover_key_GFp(my->_key, sig, (unsigned char*)&digest, sizeof(digest), nV - 27, 0) == 1)
-        //    return;
         FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature" );
     }
 
