@@ -320,6 +320,7 @@ namespace fc { namespace crypto { namespace gm {
    public_key::public_key( public_key&& pk )
    :my( fc::move( pk.my) )
    {
+   }
 
    public_key& public_key::operator=( public_key&& pk )
    {
