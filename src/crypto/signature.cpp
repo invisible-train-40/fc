@@ -14,8 +14,10 @@ namespace fc { namespace crypto {
       size_t operator()(const webauthn::signature& sig) const {
          return sig.get_hash();
       }
-      size_t operator()(const gm::signature& sig) const {
-         return sig.get_hash();
+      size_t operator()(const gm::signature_shim& sig) const {
+      //for container usage
+         return *(size_t*)&sig._data.data[32-sizeof(size_t)] + *(size_t*)&sig._data.data[64-sizeof(size_t)];
+
       }
    };
 
