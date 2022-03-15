@@ -23,6 +23,14 @@ namespace fc { namespace crypto { namespace gm {
     typedef fc::array<char,105>         sig_type;
 
 
+
+     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
+        using crypto::shim<gm::public_key_data_type>::shim;
+        
+        bool valid()const {
+           return true;//gm::public_key(_data).valid();
+        }
+     };
     /**
      *  @class public_key
      *  @brief contains only the public point of an elliptic curve key.
@@ -119,14 +127,6 @@ class signature {
    
      
 
-
-     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
-        using crypto::shim<gm::public_key_data_type>::shim;
-        
-        bool valid()const {
-           return gm::public_key(_data).valid();
-        }
-     };
      struct signature_shim : public crypto::shim<gm::sig_type> {
         using public_key_type = public_key_shim;
         using crypto::shim<gm::sig_type>::shim;
