@@ -172,6 +172,11 @@ namespace fc
 
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
       }
+
+    bool public_key::valid()const
+    {
+      return my->_key != nullptr;
+    }
     public_key::public_key( const public_key_point_data& dat )
     {
       const char* front = &dat.data[0];
