@@ -137,29 +137,6 @@ namespace fc { namespace crypto { namespace gm {
     }
     */
 
-    public_key public_key::mult( const fc::sha256& digest )
-    {
-        // get point from this public key
-        const EC_POINT* master_pub   = EC_KEY_get0_public_key( my->_key );
-        ec_group group(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
-
-        ssl_bignum z;
-        BN_bin2bn((unsigned char*)&digest, sizeof(digest), z);
-
-        // multiply by digest
-        ssl_bignum one;
-        BN_one(one);
-        bn_ctx ctx(BN_CTX_new());
-
-        ec_point result(EC_POINT_new(group));
-        EC_POINT_mul(group, result, z, master_pub, one, ctx);
-
-        public_key rtn;
-        rtn.my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-        EC_KEY_set_public_key(rtn.my->_key,result);
-
-        return rtn;
-    }
     bool       public_key::valid()const
     {
       return my->_key != nullptr;
