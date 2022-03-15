@@ -2,64 +2,53 @@
 #include <fc/crypto/bigint.hpp>
 #include <fc/crypto/common.hpp>
 #include <fc/crypto/sha256.hpp>
-#include <fc/crypto/elliptic_r1.hpp>
+#include <fc/crypto/sha512.hpp>
 #include <fc/crypto/openssl.hpp>
 #include <fc/fwd.hpp>
 #include <fc/array.hpp>
 #include <fc/io/raw_fwd.hpp>
 
-namespace fc { namespace crypto { namespace gm {
+namespace fc {
 
-   class signature;
-   
-
+  namespace crypto { namespace gm {
     namespace detail
     {
       class public_key_impl;
+      class private_key_impl;
     }
-    typedef fc::array<char,72>          sm2_signature_base;
-    typedef fc::array<char,33>          public_key_data_type;
+
+    typedef fc::array<char,33>          public_key_data;
+    typedef fc::sha256                  private_key_secret;
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
-    typedef fc::array<char,105>         sig_type;
+    typedef fc::array<char,72>          signature;
+    typedef fc::array<unsigned char,65> compact_signature;
 
+    int ECDSA_SIG_recover_key_GFp(EC_KEY *eckey, ECDSA_SIG *ecsig, const unsigned char *msg, int msglen, int recid, int check);
 
-
-     struct public_key_shim : public crypto::shim<gm::public_key_data_type> {
-        using crypto::shim<gm::public_key_data_type>::shim;
-        
-        bool valid()const {
-           return true;//gm::public_key(_data).valid();
-        }
-     };
     /**
      *  @class public_key
      *  @brief contains only the public point of an elliptic curve key.
      */
     class public_key
     {
-       
         public:
-         using public_key_data_type = fc::array<char, 33>;
-
-         //Used for base58 de/serialization
-         using data_type = public_key;
            public_key();
            public_key(const public_key& k);
            ~public_key();
            bool verify( const fc::sha256& digest, const signature& sig );
-           public_key_data_type serialize()const;
+           public_key_data serialize()const;
            public_key_point_data serialize_ecc_point()const;
 
-           operator public_key_data_type()const { return serialize(); }
+           operator public_key_data()const { return serialize(); }
 
-           public_key( const  fc::crypto::gm::public_key_shim& v);
-           
-           public_key( const public_key_data_type& v );
+
+           public_key( const public_key_data& v );
            public_key( const public_key_point_data& v );
-           public_key( const signature& c, const fc::sha256& digest, bool check_canonical = true );
-           public_key( const sig_type& c, const fc::sha256& digest, bool check_canonical = true );
+           public_key( const compact_signature& c, const fc::sha256& digest, bool check_canonical = true );
 
            bool valid()const;
+           public_key mult( const fc::sha256& offset );
+           public_key add( const fc::sha256& offset )const;
 
            public_key( public_key&& pk );
            public_key& operator=( public_key&& pk );
@@ -79,80 +68,122 @@ namespace fc { namespace crypto { namespace gm {
            static public_key from_base58( const std::string& b58 );
 
         private:
+          friend class private_key;
+          friend compact_signature signature_from_ecdsa(const EC_KEY* key, const public_key_data& pub_data, fc::ecdsa_sig& sig, const fc::sha256& d);
           fc::fwd<detail::public_key_impl,8> my;
     };
 
-class signature {
-   public:
-      //used for base58 de/serialization
-      using data_type = signature;
-      signature serialize()const { return *this; }
+    /**
+     *  @class private_key
+     *  @brief an elliptic curve private key.
+     */
+    class private_key
+    {
+        public:
+           private_key();
+           private_key( private_key&& pk );
+           private_key( const private_key& pk );
+           ~private_key();
 
-      signature() {}
-      signature(const gm::public_key_data_type& s, const gm::sm2_signature_base& a) :
-         pub_key(s), sm2_signature_asn1(a) {}
+           private_key& operator=( private_key&& pk );
+           private_key& operator=( const private_key& pk );
 
-      public_key recover(const sha256& digest, bool check_canonical) const {
-         return public_key(*this, digest, check_canonical);
-      }
-      size_t variable_size() const {
-         return 105;
-      }
+           static private_key generate();
+           static private_key regenerate( const fc::sha256& secret );
 
-      bool operator==(const signature& o) const {
-         return pub_key == o.pub_key &&
-                  sm2_signature_asn1 == o.sm2_signature_asn1;
-      }
+           /**
+            *  This method of generation enables creating a new private key in a deterministic manner relative to
+            *  an initial seed.   A public_key created from the seed can be multiplied by the offset to calculate
+            *  the new public key without having to know the private key.
+            */
+           static private_key generate_from_seed( const fc::sha256& seed, const fc::sha256& offset = fc::sha256() );
 
-      bool operator<(const signature& o) const {
-         return std::tie(pub_key, sm2_signature_asn1) < std::tie(pub_key, sm2_signature_asn1);
-      }
+           private_key_secret get_secret()const; // get the private key secret
 
-      //for container usage
-      size_t get_hash() const {
-         return *(size_t*)&sm2_signature_asn1.data[32-sizeof(size_t)] + *(size_t*)&sm2_signature_asn1.data[64-sizeof(size_t)];
-      }
+           operator private_key_secret ()const { return get_secret(); }
 
-      friend struct fc::reflector<signature>;
-      friend class public_key;
-   private:
-      gm::public_key_data_type pub_key;
-      gm::sm2_signature_base sm2_signature_asn1;
-};
+           /**
+            *  Given a public key, calculatse a 512 bit shared secret between that
+            *  key and this private key.
+            */
+           fc::sha512 get_shared_secret( const public_key& pub )const;
+
+           signature         sign( const fc::sha256& digest )const;
+           compact_signature sign_compact( const fc::sha256& digest )const;
+           bool              verify( const fc::sha256& digest, const signature& sig );
+
+           public_key get_public_key()const;
+
+           inline friend bool operator==( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() == b.get_secret();
+           }
+           inline friend bool operator!=( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() != b.get_secret();
+           }
+           inline friend bool operator<( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() < b.get_secret();
+           }
+
+        private:
+           fc::fwd<detail::private_key_impl,8> my;
+    };
 
      /**
        * Shims
        */
+     struct public_key_shim : public crypto::shim<public_key_data> {
+        using crypto::shim<public_key_data>::shim;
 
-   
-     
+        bool valid()const {
+           return public_key(_data).valid();
+        }
+     };
 
-     struct signature_shim : public crypto::shim<gm::sig_type> {
+     struct signature_shim : public crypto::shim<compact_signature> {
         using public_key_type = public_key_shim;
-        using crypto::shim<gm::sig_type>::shim;
+        using crypto::shim<compact_signature>::shim;
 
         public_key_type recover(const sha256& digest, bool check_canonical) const {
            return public_key_type(public_key(_data, digest, check_canonical).serialize());
         }
      };
-}
 
-template<>
-struct eq_comparator<gm::signature> {
-   static bool apply(const gm::signature& a, const gm::signature& b) {
-      return a == b;
-   }
-};
+     struct private_key_shim : public crypto::shim<private_key_secret> {
+        using crypto::shim<private_key_secret>::shim;
+        using signature_type = signature_shim;
+        using public_key_type = public_key_shim;
 
-template<>
-struct less_comparator<gm::signature> {
-   static bool apply(const gm::signature& a, const gm::signature& b) {
-      return a < b;
-   }
-};
+        signature_type sign( const sha256& digest, bool require_canonical = true ) const
+        {
+           return signature_type(private_key::regenerate(_data).sign_compact(digest));
+        }
 
-}
+        public_key_type get_public_key( ) const
+        {
+           return public_key_type(private_key::regenerate(_data).get_public_key().serialize());
+        }
 
+        sha512 generate_shared_secret( const public_key_type &pub_key ) const
+        {
+           return private_key::regenerate(_data).get_shared_secret(public_key(pub_key.serialize()));
+        }
+
+        static private_key_shim generate()
+        {
+           return private_key_shim(private_key::generate().get_secret());
+        }
+     };
+
+     //key here is just an optimization for getting the curve's parameters from an already constructed curve
+     compact_signature signature_from_ecdsa(const EC_KEY* key, const public_key_data& pub, fc::ecdsa_sig& sig, const fc::sha256& d);
+
+  } // namespace gm
+  } // namespace crypto
+  void to_variant( const crypto::gm::private_key& var,  variant& vo );
+  void from_variant( const variant& var,  crypto::gm::private_key& vo );
   void to_variant( const crypto::gm::public_key& var,  variant& vo );
   void from_variant( const variant& var,  crypto::gm::public_key& vo );
 
@@ -161,7 +192,7 @@ struct less_comparator<gm::signature> {
       template<typename Stream>
       void unpack( Stream& s, fc::crypto::gm::public_key& pk)
       {
-          crypto::gm::public_key_data_type ser;
+          crypto::gm::public_key_data ser;
           fc::raw::unpack(s,ser);
           pk = fc::crypto::gm::public_key( ser );
       }
@@ -172,12 +203,27 @@ struct less_comparator<gm::signature> {
           fc::raw::pack( s, pk.serialize() );
       }
 
+      template<typename Stream>
+      void unpack( Stream& s, fc::crypto::gm::private_key& pk)
+      {
+          fc::sha256 sec;
+          unpack( s, sec );
+          pk = crypto::gm::private_key::regenerate(sec);
+      }
+
+      template<typename Stream>
+      void pack( Stream& s, const fc::crypto::gm::private_key& pk)
+      {
+          fc::raw::pack( s, pk.get_secret() );
+      }
 
   } // namespace raw
-}
+
+} // namespace fc
 #include <fc/reflect/reflect.hpp>
 
-FC_REFLECT(fc::crypto::gm::signature, (pub_key)(sm2_signature_asn1))
+FC_REFLECT_TYPENAME( fc::crypto::gm::private_key )
 FC_REFLECT_TYPENAME( fc::crypto::gm::public_key )
-FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data_type>), BOOST_PP_SEQ_NIL )
-FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::sig_type>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::compact_signature>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::private_key_shim, (fc::crypto::shim<fc::crypto::gm::private_key_secret>), BOOST_PP_SEQ_NIL )
