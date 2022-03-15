@@ -33,27 +33,6 @@ namespace fc { namespace crypto { namespace gm {
           }
           EC_KEY* _key;
       };
-      class private_key_impl
-      {
-        public:
-          private_key_impl()
-          :_key(nullptr)
-          {
-            init_openssl();
-          }
-          ~private_key_impl()
-          {
-            if( _key != nullptr )
-            {
-              EC_KEY_free(_key);
-            }
-          }
-          private_key_impl( const private_key_impl& cpy )
-          {
-            _key = cpy._key ? EC_KEY_dup( cpy._key ) : nullptr;
-          }
-          EC_KEY* _key;
-      };
     }
     static void * ecies_key_derivation(const void *input, size_t ilen, void *output, size_t *olen)
     {
@@ -141,88 +120,6 @@ namespace fc { namespace crypto { namespace gm {
         return ret;
     }
 
-    compact_signature signature_from_ecdsa(const EC_KEY* key, const public_key_data& pub_data, fc::ecdsa_sig& sig, const fc::sha256& d) {
-        //We can't use ssl_bignum here; _get0() does not transfer ownership to us; _set0() does transfer ownership to fc::ecdsa_sig
-        const BIGNUM *sig_r, *sig_s;
-        BIGNUM *r = BN_new(), *s = BN_new();
-        ECDSA_SIG_get0(sig, &sig_r, &sig_s);
-        BN_copy(r, sig_r);
-        BN_copy(s, sig_s);
-
-        //want to always use the low S value
-        const EC_GROUP* group = EC_KEY_get0_group(key);
-        ssl_bignum order, halforder;
-        EC_GROUP_get_order(group, order, nullptr);
-        BN_rshift1(halforder, order);
-        if(BN_cmp(s, halforder) > 0)
-           BN_sub(s, order, s);
-
-        compact_signature csig;
-
-        int nBitsR = BN_num_bits(r);
-        int nBitsS = BN_num_bits(s);
-        if(nBitsR > 256 || nBitsS > 256)
-          FC_THROW_EXCEPTION( exception, "Unable to sign" );
-
-        ECDSA_SIG_set0(sig, r, s);
-
-        int nRecId = -1;
-        for (int i=0; i<4; i++)
-        {
-          public_key keyRec;
-          keyRec.my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-          if (ECDSA_SIG_recover_key_GFp(keyRec.my->_key, sig, (unsigned char*)&d, sizeof(d), i, 1) == 1)
-          {
-            if (keyRec.serialize() == pub_data )
-            {
-              nRecId = i;
-              break;
-            }
-          }
-        }
-        if (nRecId == -1)
-          FC_THROW_EXCEPTION( exception, "unable to construct recoverable key");
-
-        csig.data[0] = nRecId+27+4;
-        BN_bn2bin(r,&csig.data[33-(nBitsR+7)/8]);
-        BN_bn2bin(s,&csig.data[65-(nBitsS+7)/8]);
-
-        return csig;
-    }
-
-    int static inline EC_KEY_regenerate_key(EC_KEY *eckey, const BIGNUM *priv_key)
-    {
-        int ok = 0;
-        BN_CTX *ctx = NULL;
-        EC_POINT *pub_key = NULL;
-
-        if (!eckey) return 0;
-
-        const EC_GROUP *group = EC_KEY_get0_group(eckey);
-
-        if ((ctx = BN_CTX_new()) == NULL)
-        goto err;
-
-        pub_key = EC_POINT_new(group);
-
-        if (pub_key == NULL)
-        goto err;
-
-        if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx))
-        goto err;
-
-        EC_KEY_set_private_key(eckey,priv_key);
-        EC_KEY_set_public_key(eckey,pub_key);
-
-        ok = 1;
-
-        err:
-
-        if (pub_key) EC_POINT_free(pub_key);
-        if (ctx != NULL) BN_CTX_free(ctx);
-
-        return(ok);
-    }
 
 /*
     public_key::public_key()
@@ -267,50 +164,6 @@ namespace fc { namespace crypto { namespace gm {
     {
       return my->_key != nullptr;
     }
-    public_key public_key::add( const fc::sha256& digest )const
-    {
-      try {
-        ec_group group(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
-        bn_ctx ctx(BN_CTX_new());
-
-        fc::bigint digest_bi( (char*)&digest, sizeof(digest) );
-
-        ssl_bignum order;
-        EC_GROUP_get_order(group, order, ctx);
-        if( digest_bi > fc::bigint(order) )
-        {
-          FC_THROW_EXCEPTION( exception, "digest > group order" );
-        }
-
-
-        public_key digest_key = private_key::regenerate(digest).get_public_key();
-        const EC_POINT* digest_point   = EC_KEY_get0_public_key( digest_key.my->_key );
-
-        // get point from this public key
-        const EC_POINT* master_pub   = EC_KEY_get0_public_key( my->_key );
-
-        ssl_bignum z;
-        BN_bin2bn((unsigned char*)&digest, sizeof(digest), z);
-
-        // multiply by digest
-        ssl_bignum one;
-        BN_one(one);
-
-        ec_point result(EC_POINT_new(group));
-        EC_POINT_add(group, result, digest_point, master_pub, ctx);
-
-        if (EC_POINT_is_at_infinity(group, result))
-        {
-          FC_THROW_EXCEPTION( exception, "point at  infinity" );
-        }
-
-
-        public_key rtn;
-        rtn.my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-        EC_KEY_set_public_key(rtn.my->_key,result);
-        return rtn;
-      } FC_RETHROW_EXCEPTIONS( debug, "digest: ${digest}", ("digest",digest) );
-    }
 
     std::string public_key::to_base58() const
     {
@@ -336,108 +189,6 @@ namespace fc { namespace crypto { namespace gm {
         return public_key(key);
     }
 
-    private_key::private_key()
-    {}
-
-    private_key private_key::generate_from_seed( const fc::sha256& seed, const fc::sha256& offset )
-    {
-        ssl_bignum z;
-        BN_bin2bn((unsigned char*)&offset, sizeof(offset), z);
-
-        ec_group group(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
-        bn_ctx ctx(BN_CTX_new());
-        ssl_bignum order;
-        EC_GROUP_get_order(group, order, ctx);
-
-        // secexp = (seed + z) % order
-        ssl_bignum secexp;
-        BN_bin2bn((unsigned char*)&seed, sizeof(seed), secexp);
-        BN_add(secexp, secexp, z);
-        BN_mod(secexp, secexp, order, ctx);
-
-        fc::sha256 secret;
-        FC_ASSERT(BN_num_bytes(secexp) <= int64_t(sizeof(secret)));
-        auto shift = sizeof(secret) - BN_num_bytes(secexp);
-        BN_bn2bin(secexp, ((unsigned char*)&secret)+shift);
-        return regenerate( secret );
-    }
-
-    private_key private_key::regenerate( const fc::sha256& secret )
-    {
-       private_key self;
-       self.my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-       if( !self.my->_key ) FC_THROW_EXCEPTION( exception, "Unable to generate EC key" );
-
-       ssl_bignum bn;
-       BN_bin2bn( (const unsigned char*)&secret, 32, bn );
-
-       if( !EC_KEY_regenerate_key(self.my->_key,bn) )
-       {
-          FC_THROW_EXCEPTION( exception, "unable to regenerate key" );
-       }
-       return self;
-    }
-
-    fc::sha256 private_key::get_secret()const
-    {
-       if( !my->_key )
-       {
-          return fc::sha256();
-       }
-
-       fc::sha256 sec;
-       const BIGNUM* bn = EC_KEY_get0_private_key(my->_key);
-       if( bn == NULL )
-       {
-         FC_THROW_EXCEPTION( exception, "get private key failed" );
-       }
-       int nbytes = BN_num_bytes(bn);
-       BN_bn2bin(bn, &((unsigned char*)&sec)[32-nbytes] );
-       return sec;
-    }
-
-    private_key private_key::generate()
-    {
-       private_key self;
-       EC_KEY* k = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-       if( !k ) FC_THROW_EXCEPTION( exception, "Unable to generate EC key" );
-       self.my->_key = k;
-       if( !EC_KEY_generate_key( self.my->_key ) )
-       {
-          FC_THROW_EXCEPTION( exception, "ecc key generation error" );
-
-       }
-
-#if 0
-          = bigint( EC_KEY_get0_private_key( k );
-       EC_POINT* pub   = EC_KEY_get0_public_key( k );
-       EC_GROUP* group = EC_KEY_get0_group( k );
-
-       EC_POINT_get_affine_coordinates_GFp( group, pub, self.my->_pub_x.get(), self.my->_pub_y.get(), nullptr/*ctx*/ );
-
-       EC_KEY_free(k);
-#endif
-
-       return self;
-    }
-
-    signature private_key::sign( const fc::sha256& digest )const
-    {
-        unsigned int buf_len = ECDSA_size(my->_key);
-//        fprintf( stderr, "%d  %d\n", buf_len, sizeof(sha256) );
-        signature sig;
-        FC_ASSERT( buf_len == sizeof(sig) );
-
-        if( !ECDSA_sign( 0,
-                    (const unsigned char*)&digest, sizeof(digest),
-                    (unsigned char*)&sig, &buf_len, my->_key ) )
-        {
-            FC_THROW_EXCEPTION( exception, "signing error" );
-        }
-
-
-        return sig;
-    }
     bool       public_key::verify( const fc::sha256& digest, const fc::crypto::gm::signature& sig )
     {
       return 1 == ECDSA_verify( 0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key );
@@ -551,32 +302,6 @@ namespace fc { namespace crypto { namespace gm {
         FC_THROW_EXCEPTION(exception, "unable to reconstruct public key from signature");
       }*/
 
-    bool       private_key::verify( const fc::sha256& digest, const fc::crypto::gm::signature& sig )
-    {
-      return 1 == ECDSA_verify( 0, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig, sizeof(sig), my->_key );
-    }
-
-    public_key private_key::get_public_key()const
-    {
-       public_key pub;
-       pub.my->_key = EC_KEY_new_by_curve_name( NID_X9_62_prime256v1 );
-       EC_KEY_set_public_key( pub.my->_key, EC_KEY_get0_public_key( my->_key ) );
-       return pub;
-    }
-
-
-    fc::sha512 private_key::get_shared_secret( const public_key& other )const
-    {
-      FC_ASSERT( my->_key != nullptr );
-      FC_ASSERT( other.my->_key != nullptr );
-      fc::sha512 buf;
-      ECDH_compute_key( (unsigned char*)&buf, sizeof(buf), EC_KEY_get0_public_key(other.my->_key), my->_key, ecies_key_derivation );
-      return buf;
-    }
-
-    private_key::~private_key()
-    {
-    }
 
     public_key::public_key( const compact_signature& c, const fc::sha256& digest, bool check_canonical )
     {
@@ -611,30 +336,6 @@ namespace fc { namespace crypto { namespace gm {
         FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature" );
     }
 
-    compact_signature private_key::sign_compact( const fc::sha256& digest )const
-    {
-      try {
-        FC_ASSERT( my->_key != nullptr );
-        auto my_pub_key = get_public_key().serialize(); // just for good measure
-        ecdsa_sig sig = ECDSA_do_sign((unsigned char*)&digest, sizeof(digest), my->_key);
-
-        if (sig==nullptr)
-          FC_THROW_EXCEPTION( exception, "Unable to sign" );
-
-        return signature_from_ecdsa(my->_key, my_pub_key, sig, digest);
-      } FC_RETHROW_EXCEPTIONS( warn, "sign ${digest}", ("digest", digest)("private_key",*this) );
-    }
-
-   private_key& private_key::operator=( private_key&& pk )
-   {
-     if( my->_key )
-     {
-       EC_KEY_free(my->_key);
-     }
-     my->_key = pk.my->_key;
-     pk.my->_key = nullptr;
-     return *this;
-   }
    public_key::public_key( const public_key& pk )
    :my(pk.my)
    {
@@ -642,15 +343,6 @@ namespace fc { namespace crypto { namespace gm {
    public_key::public_key( public_key&& pk )
    :my( fc::move( pk.my) )
    {
-   }
-   private_key::private_key( const private_key& pk )
-   :my(pk.my)
-   {
-   }
-   private_key::private_key( private_key&& pk )
-   :my( fc::move( pk.my) )
-   {
-   }
 
    public_key& public_key::operator=( public_key&& pk )
    {
@@ -671,29 +363,9 @@ namespace fc { namespace crypto { namespace gm {
      my->_key = EC_KEY_dup(pk.my->_key);
      return *this;
    }
-   private_key& private_key::operator=( const private_key& pk )
-   {
-     if( my->_key )
-     {
-       EC_KEY_free(my->_key);
-     }
-     my->_key = EC_KEY_dup(pk.my->_key);
-     return *this;
-   }
 
 }
 }
-  void to_variant( const crypto::gm::private_key& var,  variant& vo )
-  {
-    vo = var.get_secret();
-  }
-  void from_variant( const variant& var,  crypto::gm::private_key& vo )
-  {
-    fc::sha256 sec;
-    from_variant( var, sec );
-    vo = crypto::gm::private_key::regenerate(sec);
-  }
-
   void to_variant( const crypto::gm::public_key& var,  variant& vo )
   {
     vo = var.serialize();
