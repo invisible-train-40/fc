@@ -17,7 +17,6 @@ namespace fc {
     }
 
     typedef fc::array<char,33>          public_key_data;
-    typedef fc::sha256                  private_key_secret;
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>          signature;
     typedef fc::array<unsigned char,105> compact_signature;
@@ -91,8 +90,6 @@ namespace fc {
 
   } // namespace gm
   } // namespace crypto
-  void to_variant( const crypto::gm::private_key& var,  variant& vo );
-  void from_variant( const variant& var,  crypto::gm::private_key& vo );
   void to_variant( const crypto::gm::public_key& var,  variant& vo );
   void from_variant( const variant& var,  crypto::gm::public_key& vo );
 
