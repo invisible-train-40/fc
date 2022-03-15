@@ -12,14 +12,15 @@ namespace fc { namespace crypto {
       constexpr const char* signature_prefix[] = {
          "K1",
          "R1",
-         "WA"
+         "WA",
+         "GM"
       };
    };
 
    class signature
    {
       public:
-         using storage_type = static_variant<ecc::signature_shim, r1::signature_shim, webauthn::signature>;
+         using storage_type = static_variant<ecc::signature_shim, r1::signature_shim, webauthn::signature, gm::signature_shim>;
 
          signature() = default;
          signature( signature&& ) = default;
