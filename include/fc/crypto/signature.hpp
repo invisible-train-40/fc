@@ -1,6 +1,7 @@
 #pragma once
 #include <fc/static_variant.hpp>
 #include <fc/crypto/elliptic.hpp>
+#include <fc/crypto/elliptic_gm.hpp>
 #include <fc/crypto/elliptic_r1.hpp>
 #include <fc/crypto/elliptic_webauthn.hpp>
 #include <fc/reflect/reflect.hpp>
@@ -12,14 +13,15 @@ namespace fc { namespace crypto {
       constexpr const char* signature_prefix[] = {
          "K1",
          "R1",
-         "WA"
+         "WA",
+         "GM"
       };
    };
 
    class signature
    {
       public:
-         using storage_type = static_variant<ecc::signature_shim, r1::signature_shim, webauthn::signature>;
+         using storage_type = static_variant<ecc::signature_shim, r1::signature_shim, webauthn::signature, gm::signature_shim>;
 
          signature() = default;
          signature( signature&& ) = default;
