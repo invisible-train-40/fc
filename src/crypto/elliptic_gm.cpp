@@ -179,7 +179,7 @@ std::string byte_2_str(char* bytes, int size) {
           }
           FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature p2o" );
         }
-        FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature: ${bytes_sig} - ${bytes_digest}", ("bytes_sig",byte_2_str(&c.data[0],105))("bytes_digest",byte_2_str((char *)digest.data(),32))  );
+        FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature: ${bytes_sig} - ${bytes_digest}", ("bytes_sig",byte_2_str((char *)(&c.data[0]),105))("bytes_digest",byte_2_str((char *)digest.data(),32))  );
     }
 
    public_key::public_key( const public_key& pk )
