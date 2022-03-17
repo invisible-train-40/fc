@@ -156,7 +156,7 @@ namespace fc { namespace crypto { namespace gm {
         EC_KEY *key = EC_KEY_new_by_curve_name(NID_sm2p256v1);
         key = o2i_ECPublicKey(&key, (const unsigned char **)&front, 33);
         FC_ASSERT(key, "invalid public key in sm2 signature");
-        if (SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)&c.data[33], (c.size() - 33), key) == 1)
+        if (SM2_verify(NID_undef, (uint8_t *)digest.data(), 32, (uint8_t *)&c.data[33], asn1_enc_length, key) == 1)
         {
           const EC_POINT *point = EC_KEY_get0_public_key(key);
           const EC_GROUP *group = EC_KEY_get0_group(key);
