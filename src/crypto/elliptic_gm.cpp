@@ -8,6 +8,17 @@
 #include <fc/log/logger.hpp>
 
 namespace fc { namespace crypto { namespace gm {
+  char const hex[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A',   'B','C','D','E','F'};
+
+std::string byte_2_str(char* bytes, int size) {
+  std::string str;
+  for (int i = 0; i < size; ++i) {
+    const char ch = bytes[i];
+    str.append(&hex[(ch  & 0xF0) >> 4], 1);
+    str.append(&hex[ch & 0xF], 1);
+  }
+  return str;
+}
     namespace detail
     {
       class public_key_impl
@@ -168,7 +179,7 @@ namespace fc { namespace crypto { namespace gm {
           }
           FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature p2o" );
         }
-        FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature" );
+        FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature: ${bytes_sig} - ${bytes_digest}", ("bytes_sig",byte_2_str(&c.data[0],105))("bytes_digest",byte_2_str((char *)digest.data(),32))  );
     }
 
    public_key::public_key( const public_key& pk )
