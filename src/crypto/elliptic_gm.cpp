@@ -150,7 +150,7 @@ namespace fc { namespace crypto { namespace gm {
 
         const unsigned char *dat = (unsigned char *)&c.data[0];
         uint8_t asn1_enc_length = ((uint8_t)(dat[33 + 1])) + 2;
-        FC_ASSERT(asn1_enc_length >= 70 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
+        FC_ASSERT(asn1_enc_length >= 60 && asn1_enc_length <= 72, "invalid asn1 encoding on signature");
         FC_ASSERT(asn1_enc_length <= (c.size() - 33), "bad match of signature size");
         const unsigned char *front = (uint8_t *)(c.data);
         EC_KEY *key = EC_KEY_new_by_curve_name(NID_sm2p256v1);
