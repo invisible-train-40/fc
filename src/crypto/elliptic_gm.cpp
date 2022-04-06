@@ -127,6 +127,40 @@ namespace fc { namespace crypto { namespace gm {
         return regenerate( secret );
     }
 
+
+    int static inline EC_KEY_regenerate_key(EC_KEY *eckey, const BIGNUM *priv_key)
+    {
+        int ok = 0;
+        BN_CTX *ctx = NULL;
+        EC_POINT *pub_key = NULL;
+
+        if (!eckey) return 0;
+
+        const EC_GROUP *group = EC_KEY_get0_group(eckey);
+
+        if ((ctx = BN_CTX_new()) == NULL)
+        goto err;
+
+        pub_key = EC_POINT_new(group);
+
+        if (pub_key == NULL)
+        goto err;
+
+        if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx))
+        goto err;
+
+        EC_KEY_set_private_key(eckey,priv_key);
+        EC_KEY_set_public_key(eckey,pub_key);
+
+        ok = 1;
+
+        err:
+
+        if (pub_key) EC_POINT_free(pub_key);
+        if (ctx != NULL) BN_CTX_free(ctx);
+
+        return(ok);
+    }
     private_key private_key::regenerate( const fc::sha256& secret )
     {
        private_key self;
@@ -179,9 +213,9 @@ namespace fc { namespace crypto { namespace gm {
     {
         unsigned int buf_len = ECDSA_size(my->_key);
         signature sig;//already zeroed out by the array initializer
-        FC_ASSERT( buf_len > 0 && (buf_len+33)<=105 && (buf_len+33)<=sizeof(sig),"invalid sig length")
+        FC_ASSERT( buf_len > 0 && (buf_len+33)<=105 && (buf_len+33)<=sizeof(sig),"invalid sig length");
         size_t pub_key_len = EC_POINT_point2oct(EC_KEY_get0_group(k), EC_KEY_get0_public_key(k), POINT_CONVERSION_COMPRESSED, &sig, 33, NULL);
-        FC_ASSERT(pub_key_len == 33, "invalid pubkey length")
+        FC_ASSERT(pub_key_len == 33, "invalid pubkey length");
 
         if (SM2_sign(NID_undef, (const unsigned char*)&digest, sizeof(digest), &sig.data[33], &siglen, my->_key) != 1){
             FC_THROW_EXCEPTION( exception, "signing error" );
@@ -270,7 +304,7 @@ namespace fc { namespace crypto { namespace gm {
 
     fc::sha512 private_key::get_shared_secret( const public_key& other )const
     {
-      FC_THROW_EXCEPTION("gm does not support get_shared_secret")
+      FC_THROW_EXCEPTION(exception, "gm does not support get_shared_secret");
     }
 
     private_key::~private_key()
