@@ -14,9 +14,12 @@ namespace fc {
     namespace detail
     {
       class public_key_impl;
+      class private_key_impl;
     }
 
     typedef fc::array<char,33>          public_key_data;
+    typedef fc::sha256                  private_key_secret;
+
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>          signature;
     typedef fc::array<unsigned char,105> compact_signature;
@@ -62,7 +65,66 @@ namespace fc {
            static public_key from_base58( const std::string& b58 );
 
         private:
+          friend class private_key;
           fc::fwd<detail::public_key_impl,8> my;
+    };
+
+    /**
+     *  @class private_key
+     *  @brief an elliptic curve private key.
+     */
+    class private_key
+    {
+        public:
+           private_key();
+           private_key( private_key&& pk );
+           private_key( const private_key& pk );
+           ~private_key();
+
+           private_key& operator=( private_key&& pk );
+           private_key& operator=( const private_key& pk );
+
+           static private_key generate();
+           static private_key regenerate( const fc::sha256& secret );
+
+           /**
+            *  This method of generation enables creating a new private key in a deterministic manner relative to
+            *  an initial seed.   A public_key created from the seed can be multiplied by the offset to calculate
+            *  the new public key without having to know the private key.
+            */
+           static private_key generate_from_seed( const fc::sha256& seed, const fc::sha256& offset = fc::sha256() );
+
+           private_key_secret get_secret()const; // get the private key secret
+
+           operator private_key_secret ()const { return get_secret(); }
+
+           /**
+            *  Given a public key, calculatse a 512 bit shared secret between that
+            *  key and this private key.
+            */
+           fc::sha512 get_shared_secret( const public_key& pub )const;
+
+           signature         sign( const fc::sha256& digest )const;
+           compact_signature sign_compact( const fc::sha256& digest )const;
+           bool              verify( const fc::sha256& digest, const signature& sig );
+
+           public_key get_public_key()const;
+
+           inline friend bool operator==( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() == b.get_secret();
+           }
+           inline friend bool operator!=( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() != b.get_secret();
+           }
+           inline friend bool operator<( const private_key& a, const private_key& b )
+           {
+            return a.get_secret() < b.get_secret();
+           }
+
+        private:
+           fc::fwd<detail::private_key_impl,8> my;
     };
 
 
@@ -86,8 +148,36 @@ namespace fc {
         }
      };
 
+     struct private_key_shim : public crypto::shim<private_key_secret> {
+        using crypto::shim<private_key_secret>::shim;
+        using signature_type = signature_shim;
+        using public_key_type = public_key_shim;
+
+        signature_type sign( const sha256& digest, bool require_canonical = true ) const
+        {
+           return signature_type(private_key::regenerate(_data).sign_compact(digest));
+        }
+
+        public_key_type get_public_key( ) const
+        {
+           return public_key_type(private_key::regenerate(_data).get_public_key().serialize());
+        }
+
+        sha512 generate_shared_secret( const public_key_type &pub_key ) const
+        {
+           return private_key::regenerate(_data).get_shared_secret(public_key(pub_key.serialize()));
+        }
+
+        static private_key_shim generate()
+        {
+           return private_key_shim(private_key::generate().get_secret());
+        }
+     };
+
   } // namespace gm
   } // namespace crypto
+  void to_variant( const crypto::gm::private_key& var,  variant& vo );
+  void from_variant( const variant& var,  crypto::gm::private_key& vo );
   void to_variant( const crypto::gm::public_key& var,  variant& vo );
   void from_variant( const variant& var,  crypto::gm::public_key& vo );
 
@@ -107,12 +197,27 @@ namespace fc {
           fc::raw::pack( s, pk.serialize() );
       }
 
+      template<typename Stream>
+      void unpack( Stream& s, fc::crypto::gm::private_key& pk)
+      {
+          fc::sha256 sec;
+          unpack( s, sec );
+          pk = crypto::gm::private_key::regenerate(sec);
+      }
+
+      template<typename Stream>
+      void pack( Stream& s, const fc::crypto::gm::private_key& pk)
+      {
+          fc::raw::pack( s, pk.get_secret() );
+      }
 
   } // namespace raw
 
 } // namespace fc
 #include <fc/reflect/reflect.hpp>
 
+FC_REFLECT_TYPENAME( fc::crypto::gm::private_key )
 FC_REFLECT_TYPENAME( fc::crypto::gm::public_key )
 FC_REFLECT_DERIVED( fc::crypto::gm::public_key_shim, (fc::crypto::shim<fc::crypto::gm::public_key_data>), BOOST_PP_SEQ_NIL )
 FC_REFLECT_DERIVED( fc::crypto::gm::signature_shim, (fc::crypto::shim<fc::crypto::gm::compact_signature>), BOOST_PP_SEQ_NIL )
+FC_REFLECT_DERIVED( fc::crypto::gm::private_key_shim, (fc::crypto::shim<fc::crypto::gm::private_key_secret>), BOOST_PP_SEQ_NIL )
