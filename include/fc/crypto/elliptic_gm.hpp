@@ -22,7 +22,7 @@ namespace fc {
 
     typedef fc::array<char,65>          public_key_point_data; ///< the full non-compressed version of the ECC point
     typedef fc::array<char,105>          signature;
-    typedef fc::array<unsigned char,105> compact_signature;
+    typedef fc::array<char,105> compact_signature;
 
     /**
      *  @class public_key
