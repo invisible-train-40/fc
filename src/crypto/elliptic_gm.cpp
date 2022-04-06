@@ -339,7 +339,7 @@ namespace fc { namespace crypto { namespace gm {
         //FC_THROW_EXCEPTION( exception, "unable to reconstruct public key from signature: ${bytes_sig} - ${bytes_digest}", ("bytes_sig",byte_2_str((char *)(&c.data[0]),105))("bytes_digest",byte_2_str((char *)digest.data(),32))  );
     }
 
-    signature private_key::sign_compact( const fc::sha256& digest )const
+    compact_signature private_key::sign_compact( const fc::sha256& digest )const
     {
       return sign(digest);
     }
