@@ -14,7 +14,6 @@ namespace fc { namespace crypto {
       constexpr const char* private_key_prefix[] = {
          "K1",
          "R1",
-         "G1",
          "GM"
       };
    };
@@ -22,7 +21,7 @@ namespace fc { namespace crypto {
    class private_key
    {
       public:
-         using storage_type = static_variant<ecc::private_key_shim, r1::private_key_shim, gm::private_key_shim, gm::private_key_shim>;
+         using storage_type = static_variant<ecc::private_key_shim, r1::private_key_shim, gm::private_key_shim>;
 
          private_key() = default;
          private_key( private_key&& ) = default;

@@ -214,10 +214,10 @@ namespace fc { namespace crypto { namespace gm {
         unsigned int buf_len = ECDSA_size(my->_key);
         signature sig;//already zeroed out by the array initializer
         FC_ASSERT( buf_len > 0 && (buf_len+33)<=105 && (buf_len+33)<=sizeof(sig),"invalid sig length");
-        size_t pub_key_len = EC_POINT_point2oct(EC_KEY_get0_group(my->_key), EC_KEY_get0_public_key(my->_key), POINT_CONVERSION_COMPRESSED, &sig, 33, NULL);
+        size_t pub_key_len = EC_POINT_point2oct(EC_KEY_get0_group(my->_key), EC_KEY_get0_public_key(my->_key), POINT_CONVERSION_COMPRESSED,( unsigned char*) &sig.data[0], 33, NULL);
         FC_ASSERT(pub_key_len == 33, "invalid pubkey length");
 
-        if (SM2_sign(NID_undef, (const unsigned char*)&digest, sizeof(digest), &sig.data[33], &buf_len, my->_key) != 1){
+        if (SM2_sign(NID_undef, (const unsigned char*)&digest, sizeof(digest),(unsigned char*) &sig.data[33], &buf_len, my->_key) != 1){
             FC_THROW_EXCEPTION( exception, "signing error" );
         }
         return sig;
@@ -289,7 +289,7 @@ namespace fc { namespace crypto { namespace gm {
 
     bool       private_key::verify( const fc::sha256& digest, const fc::crypto::gm::signature& sig )
     {
-      
+
       return 1 == SM2_verify( NID_undef, (unsigned char*)&digest, sizeof(digest), (unsigned char*)&sig.data[33], sizeof(sig)-33, my->_key );
     }
 
